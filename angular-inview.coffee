@@ -39,12 +39,14 @@ angularInviewModule = angular.module('angular-inview', [])
 				# The inView DOM element will be passed in `$event.inViewTarget`.
 				# - `$inview`: boolean indicating if the element is in view
 				# - `$inviewpart`: string either 'top', 'bottom' or 'both'
-				callback: ($event={}, $inview, $inviewpart) -> scope.$evalAsync =>
+				# - `$direction`: string either 'up' or 'down'
+				callback: ($event={}, $inview, $inviewpart, $direction) -> scope.$evalAsync =>
 					$event.inViewTarget = element[0]
 					inViewFunc scope,
 						'$event': $event
 						'$inview': $inview
-						'$inviewpart': $inviewpart
+						'$inviewpart': $inviewpart,
+						'$direction' : $direction
 			# An additional `in-view-options` attribute can be specified to set offsets
 			# that will displace the inView calculation and a debounce to slow down updates
 			# via scrolling events.
@@ -143,17 +145,22 @@ unbindWindowEvents = ->
 
 # ### InView checks
 # This method will call the user defined callback with the proper parameters if neccessary.
+_lastDirection = document.body.scrollTop
 triggerInViewCallback = (event, item, inview, isTopVisible, isBottomVisible) ->
 	if inview
 		elOffsetTop = getBoundingClientRect(item.element[0]).top + window.pageYOffset
 		inviewpart = (isTopVisible and isBottomVisible and 'neither') or (isTopVisible and 'top') or (isBottomVisible and 'bottom') or 'both'
+		unless item.lastScrollTop
+			item.lastScrollTop = _lastDirection
 		# The callback will be called only if a relevant value has changed.
 		# However, if the element changed it's position (for example if it has been
 		# pushed down by dynamically loaded content), the callback will be called anyway.
+		isForward = document.body.scrollTop > item.lastScrollTop
 		unless item.wasInView and item.wasInView == inviewpart and elOffsetTop == item.lastOffsetTop
 			item.lastOffsetTop = elOffsetTop
+			item.lastScrollTop = document.body.scrollTop
 			item.wasInView = inviewpart
-			item.callback event, yes, inviewpart
+			item.callback event, yes, inviewpart, isForward ? 'down' : 'up'
 	else if item.wasInView
 		item.wasInView = no
 		item.callback event, no
